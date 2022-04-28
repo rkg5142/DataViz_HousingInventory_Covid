@@ -10,7 +10,38 @@
         h3 {
             font-family: Helvetica;
         }
+        .overlay {
+            fill: none;
+            pointer-events: all;
+        }
 
+        .focus circle {
+            fill: steelblue;
+        }
+
+        .tooltip {
+            width: 94px;
+            padding: 4px 10px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            position: absolute;
+            background-color: white;
+            font-size: 14px;
+            pointer-events: none;
+            -webkit-transition: all 0.25s;
+            -moz-transition: all 0.25s;
+            -ms-transition: all 0.25s;
+            -o-transition: all 0.25s;
+            transition: all 0.25s;
+        }
+
+        .tooltip div {
+            margin: 3px 0;
+        }
+        .tooltip-date, .tooltip-rate {
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -36,6 +67,12 @@
         .attr("transform",
             "translate(" + margin.left + "," + margin.top + ")");
 
+    var tooltip = d3.select("#my_dataviz")
+        .append("div")
+        .attr("class", "tooltip")
+        .style("display", "none")
+
+
     //Read the data
     d3.csv("./Data/MSPUS.csv",
 
@@ -46,6 +83,10 @@
 
         // Now I can use this dataset:
         function (data) {
+
+            var bisectDate = d3.bisector(function(d) { return d.DATE; }).left;
+            var formatValue = d3.format(",");
+            var dateFormatter = d3.timeFormat("%m/%d/%y");
 
             // Add X axis --> it is a date format
             var x = d3.scaleTime()
@@ -79,9 +120,46 @@
                     .y(function (d) {
                         return y(d.MSPUS)
                     })
-                )
-        })
+                );
+                var focus = svg.append("g")
+                .attr("class", "focus")
+                .style("display", "none");
 
+            focus.append("circle")
+                .attr("r", 5);
+
+            //tooltip parts
+            var tooltipDate = tooltip.append("div")
+                .attr("class", "tooltip-date");
+
+            var tooltipRate = tooltip.append("div");
+            tooltipRate .append("span")
+                .attr("class", "tooltip-title")
+
+            var tooltipRateValue = tooltipRate.append("span")
+                .attr("class", "tooltip-rate");
+
+            svg.append("rect")
+                .attr("class", "overlay")
+                .attr("width", width)
+                .attr("height", height)
+                .on("mouseover", function() { focus.style("display", null); tooltip.style("display", null);  })
+                .on("mouseout", function() { focus.style("display", "none"); tooltip.style("display", "none"); })
+                .on("mousemove", mousemove);
+                
+            //This function generates the the tool tip when scrolling between indexes.
+            function mousemove() {
+                var x0 = x.invert(d3.mouse(this)[0]),
+                    i = bisectDate(data, x0, 1),
+                    d0 = data[i - 1],
+                    d1 = data[i],
+                    d = x0 - d0.DATE > d1.DATE - x0 ? d1 : d0;
+                focus.attr("transform", "translate(" + x(d.DATE) + "," + y(d.MSPUS) + ")");
+                tooltip.attr("style", "left:" + (x(d.DATE) + 64) + "px;top:" + y(d.MSPUS) + "px;");
+                tooltip.select(".tooltip-date").text(dateFormatter(d.DATE));
+                tooltip.select(".tooltip-rate").text("Value: " + formatValue(d.MSPUS));
+            }
+        })
 </script>
 </body>
 </html>
